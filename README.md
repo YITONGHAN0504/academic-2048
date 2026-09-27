@@ -12,54 +12,6 @@
 
 阶段事件由当前棋盘最高等级动态决定。
 
-## 发布
-
-这是纯静态网站，不需要后端。
-
-### GitHub Pages
-1. 将本目录全部文件上传到 GitHub 仓库根目录。
-2. Repository Settings → Pages。
-3. Source 选择 Deploy from a branch，选择 `main / root`。
-4. 等待 Pages URL 生效。
-
-### Vercel / Cloudflare Pages
-直接导入仓库即可。无构建命令，输出目录为仓库根目录。
-
-## 反馈入口配置
-
-编辑 `site-config.js`：
-
-- 推荐填写 GitHub Issues：
-  `feedbackUrl: "https://github.com/YOUR_USERNAME/academic-2048/issues/new"`
-- 或填写公开邮箱：
-  `feedbackEmail: "your@email.com"`
-
-若两者都为空，网页仍会生成结构化反馈，并尝试通过系统分享或剪贴板提供给玩家。
-
-## 自定义
-
-`site-config.js` 还可修改：
-- 作者
-- 版本
-- 发布日期
-- 源码地址
-
-## 发布前 QA
-
-建议至少测试：
-- Chrome / Edge
-- Safari（iPhone）
-- 微信内置浏览器
-- Android Chrome
-- 快速连续滑动
-- 正/负面事件
-- 冻结格解除
-- 满盘失败
-- 32768 胜利
-- 刷新后最高分保留
-- 分享、反馈、音效按钮
-- PWA 安装与离线打开
-
 ## 声明与致谢
 
 本项目为非官方娱乐作品。游戏内的教育、职称、人才项目与学术荣誉仅作娱乐化等级设计，不代表真实制度晋升关系。
