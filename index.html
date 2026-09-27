@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fb">
+<meta name="description" content="学术2048：从幼儿园一路合成到诺奖得主的学术人生主题 2048 游戏。">
+<meta name="author" content="Han Yitong">
+<meta property="og:type" content="website">
+<meta property="og:title" content="学术2048｜从幼儿园到诺奖得主">
+<meta property="og:description" content="从 2 幼儿园一路合成到 32768 诺奖得主。动态事件随人生与科研阶段变化。">
+<meta property="og:image" content="assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="manifest" href="site.webmanifest">
+<title>学术2048｜从幼儿园到诺奖得主</title>
+<style>
+:root{
+  --bg:#f5f7fb; --ink:#172033; --muted:#667085; --panel:#9aa7b8;
+  --empty:#cbd5e1; --gap:11px; --radius:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg)}
+body{
+  min-height:100vh;font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif;
+  color:var(--ink);display:flex;justify-content:center;padding:24px 16px 42px;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit}
+.wrap{width:min(640px,100%)}
+.header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+h1{margin:0;font-size:40px;line-height:1;letter-spacing:-1.4px}
+.subtitle{margin-top:9px;color:var(--muted);font-size:14px}
+.score-row{display:flex;gap:8px}
+.scorebox{
+  min-width:98px;background:#111827;color:#fff;border-radius:14px;padding:9px 12px;
+  text-align:center;box-shadow:0 8px 22px rgba(17,24,39,.10)
+}
+.scorebox.secondary{background:#475467}
+.scorebox small{display:block;font-size:10px;opacity:.72;letter-spacing:.05em}
+.scorebox b{display:block;font-size:23px;line-height:1.2;margin-top:2px}
+.toolbar{
+  display:flex;justify-content:space-between;align-items:center;gap:9px;
+  margin:17px 0 12px;flex-wrap:wrap
+}
+.toolbar-left,.toolbar-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  border:0;border-radius:10px;padding:10px 13px;background:#334155;color:#fff;
+  font-weight:750;cursor:pointer;transition:.14s transform,.14s opacity;
+}
+.btn.alt{background:#fff;color:#344054;box-shadow:0 2px 10px rgba(15,23,42,.06)}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:scale(.98)}
+.stage{
+  background:#fff;border-radius:10px;padding:9px 12px;color:#475467;font-size:13px;
+  box-shadow:0 2px 10px rgba(15,23,42,.05)
+}
+
+/* Board */
+.board-shell{
+  background:var(--panel);padding:11px;border-radius:var(--radius);
+  box-shadow:0 16px 36px rgba(30,41,59,.14);touch-action:none;user-select:none;
+}
+.board{
+  position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;
+}
+.bg-grid{
+  position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap)
+}
+.bg-cell{background:var(--empty);border-radius:12px}
+.tile-layer{position:absolute;inset:0}
+.tile{
+  position:absolute;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:7px;font-weight:850;font-size:17px;line-height:1.08;
+  transition:transform 135ms cubic-bezier(.2,.75,.25,1);
+  will-change:transform;z-index:2;box-shadow:inset 0 1px 0 rgba(255,255,255,.24)
+}
+.tile .en{display:block;font-size:9px;font-weight:650;opacity:.77;margin-top:6px}
+.tile .ttl{display:block;font-size:9px;font-weight:700;opacity:.84;margin-top:5px}
+.tile.spawn{animation:spawn .16s cubic-bezier(.2,.9,.3,1.3)}
+.tile.pop{animation:mergePop .20s cubic-bezier(.2,.9,.3,1.35)}
+.tile.blocker{z-index:3;color:#fff;border:2px dashed rgba(255,255,255,.56);background:#7a2f2f}
+@keyframes spawn{0%{scale:.52;opacity:.2}100%{scale:1;opacity:1}}
+@keyframes mergePop{0%{scale:.92}55%{scale:1.13}100%{scale:1}}
+
+.v2{background:#edf5ff;color:#19375f}.v4{background:#cfe5ff;color:#173d69}
+.v8{background:#9fd3ff;color:#0b416f}.v16{background:#68b9ed;color:#073b66}
+.v32{background:#38a9c9;color:#fff}.v64{background:#27a07b;color:#fff}
+.v128{background:#5caf63;color:#fff}.v256{background:#9fb54a;color:#24300d}
+.v512{background:#d0b33e;color:#2d2509}.v1024{background:#e6a140;color:#fff}
+.v2048{background:#e67a45;color:#fff}.v4096{background:#d9574d;color:#fff}
+.v8192{background:#b54f7f;color:#fff}.v16384{background:#7052a8;color:#fff}
+.v32768{background:#27225f;color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.25) inset,0 0 26px rgba(39,34,95,.42)}
+
+.status{
+  margin-top:14px;background:#fff;border-radius:13px;padding:14px 16px;min-height:58px;
+  display:flex;align-items:center;color:#344054;font-size:14px;box-shadow:0 4px 15px rgba(15,23,42,.05)
+}
+.progress{
+  margin-top:10px;background:#fff;border-radius:12px;padding:12px 14px;
+  color:#667085;font-size:12px;line-height:1.55
+}
+.progress b{color:#344054}
+.progress-track{height:7px;background:#e5e7eb;border-radius:999px;margin-top:9px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:#475467;border-radius:999px;transition:width .25s ease}
+.footer{
+  margin-top:14px;color:#7a8290;font-size:11px;line-height:1.7;text-align:center
+}
+
+/* Modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(15,23,42,.48);display:none;align-items:center;
+  justify-content:center;z-index:100;padding:18px;backdrop-filter:blur(7px)
+}
+.overlay.show{display:flex}
+.modal{
+  width:min(440px,100%);background:#fff;border-radius:20px;padding:26px;
+  box-shadow:0 28px 80px rgba(15,23,42,.28)
+}
+.modal.center{text-align:center}
+.modal h2{margin:0 0 10px;font-size:28px;letter-spacing:-.4px}
+.modal p{color:#667085;line-height:1.65;margin:8px 0 18px;font-size:14px}
+.modal .event-badge{
+  display:inline-block;font-size:11px;font-weight:800;padding:6px 9px;border-radius:999px;
+  background:#eef2f6;color:#344054;margin-bottom:10px
+}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.modal.center .modal-actions{justify-content:center}
+.modal .positive{color:#067a5f}.modal .negative{color:#a13434}
+.instructions{font-size:13px;color:#475467;line-height:1.7}
+.instructions b{color:#172033}
+.instructions .row{padding:8px 0;border-bottom:1px solid #edf0f3}
+.instructions .row:last-child{border-bottom:0}
+.disclaimer{
+  background:#f8fafc;border-radius:12px;padding:12px;margin-top:12px;color:#667085;
+  font-size:11px;line-height:1.6
+}
+
+
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:54px;height:54px;border-radius:13px;box-shadow:0 6px 18px rgba(23,32,51,.12)}
+.brand-text h1{margin:0}
+.brand-kicker{margin-top:5px;font-size:10px;font-weight:800;letter-spacing:.12em;color:#98a2b3}
+.site-meta{margin-top:7px;display:flex;gap:8px;flex-wrap:wrap;color:#98a2b3;font-size:10px}
+.site-meta span{background:#fff;border-radius:999px;padding:4px 7px;box-shadow:0 1px 6px rgba(15,23,42,.04)}
+.footer-links{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px}
+.footer-links button,.footer-links a{border:0;background:none;padding:0;color:#475467;text-decoration:underline;cursor:pointer;font:inherit}
+.form-field{margin:12px 0}
+.form-field label{display:block;font-size:12px;font-weight:800;color:#344054;margin-bottom:6px}
+.form-field select,.form-field textarea,.form-field input{
+ width:100%;border:1px solid #d0d5dd;border-radius:10px;padding:10px 11px;background:#fff;
+ color:#172033;font:inherit;font-size:13px;outline:none
+}
+.form-field textarea{min-height:115px;resize:vertical}
+.form-field select:focus,.form-field textarea:focus,.form-field input:focus{border-color:#667085;box-shadow:0 0 0 3px rgba(102,112,133,.10)}
+.feedback-note{font-size:11px;color:#98a2b3;line-height:1.55;margin-top:8px}
+.about-logo{width:180px;max-width:60%;display:block;margin:0 auto 18px}
+.credit-card{background:#f8fafc;border-radius:12px;padding:12px 14px;color:#667085;font-size:12px;line-height:1.65;margin-top:12px}
+.toast{
+ position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);opacity:0;
+ background:#172033;color:#fff;border-radius:999px;padding:10px 16px;font-size:12px;
+ z-index:200;transition:.2s ease;pointer-events:none
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:600px){
+ .brand-mark{width:46px;height:46px}.brand{gap:9px}.brand-kicker{display:none}
+}
+
+@media(max-width:600px){
+  body{padding:16px 10px 34px}
+  h1{font-size:30px}
+  .header{align-items:flex-start}
+  .score-row{gap:5px}
+  .scorebox{min-width:72px;padding:8px 7px}
+  .scorebox b{font-size:19px}
+  .toolbar{align-items:stretch}
+  .toolbar-left,.toolbar-right{width:100%}
+  .toolbar-left .btn,.toolbar-right .btn{flex:1}
+  .stage{width:100%;text-align:center}
+  .board-shell{padding:8px;border-radius:15px}
+  :root{--gap:8px}
+  .tile,.bg-cell{border-radius:10px}
+  .tile{font-size:13px;padding:4px}
+  .tile .en,.tile .ttl{font-size:7.5px;margin-top:4px}
+}
+@media(max-width:380px){
+  .tile{font-size:12px}.subtitle{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .tile{transition:none}.tile.spawn,.tile.pop{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <div class="brand">
+        <img class="brand-mark" src="assets/favicon.svg" alt="Academic 2048 Logo">
+        <div class="brand-text">
+          <div class="brand-kicker">ACADEMIC LIFE PUZZLE</div>
+          <h1>学术 2048</h1>
+          <div class="subtitle">从幼儿园一路合成到诺奖得主</div>
+          <div class="site-meta"><span id="versionTag">v7.0.0</span><span id="authorTag">Han Yitong / 韩易桐</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="score-row">
+      <div class="scorebox"><small>科研声望</small><b id="score">0</b></div>
+      <div class="scorebox secondary"><small>最高纪录</small><b id="best">0</b></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="btn" id="restartBtn" aria-label="重新开始游戏">重新开始</button>
+      <button class="btn alt" id="helpBtn" aria-label="查看游戏说明">游戏说明</button>
+      <button class="btn alt" id="feedbackBtn" aria-label="反馈问题或建议">反馈</button>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn alt" id="shareBtn" aria-label="分享游戏">分享</button>
+      <button class="btn alt" id="aboutBtn" aria-label="关于本游戏">关于</button>
+      <button class="btn alt" id="soundBtn" aria-label="切换音效">🔊 音效开</button>
+    </div>
+    <div class="stage" id="stage">当前阶段：幼儿园（2）</div>
+  </div>
+
+  <div class="board-shell" id="boardShell">
+    <div class="board" id="board">
+      <div class="bg-grid" id="bgGrid"></div>
+      <div class="tile-layer" id="tileLayer"></div>
+    </div>
+  </div>
+
+  <div class="status" id="status">方向键 / WASD / 滑动屏幕开始成长。</div>
+
+  <div class="progress">
+    <b id="nextStage">下一阶段：小学生（4）</b>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="footer">
+    娱乐化“学术段位”设计，不代表真实教育、职称、人才项目或学术荣誉的制度晋升关系。<br>
+    本项目为非官方娱乐作品，与任何高校、科研机构、基金机构、人才项目或奖项组织无隶属、合作或背书关系。<br>
+    <span id="footerMeta">Academic 2048 · v7.0.0 · Han Yitong / 韩易桐 · 2026</span>
+    <div class="footer-links">
+      <button id="footerAbout">作者与致谢</button>
+      <button id="footerFeedback">反馈</button>
+      <span>Inspired by 2048 by Gabriele Cirulli</span>
+    </div>
+  </div>
+</div>
+
+<!-- Event modal -->
+<div class="overlay" id="eventOverlay">
+  <div class="modal center">
+    <div class="event-badge" id="eventBadge">阶段事件</div>
+    <h2 id="eventTitle">事件</h2>
+    <p id="eventText"></p>
+    <div class="modal-actions"><button class="btn" id="eventOk">继续</button></div>
+  </div>
+</div>
+
+<!-- Restart confirm -->
+<div class="overlay" id="restartOverlay">
+  <div class="modal center">
+    <h2>重新开始？</h2>
+    <p>当前进度会被清空，但最高纪录会保留。</p>
+    <div class="modal-actions">
+      <button class="btn alt" id="restartCancel">取消</button>
+      <button class="btn" id="restartConfirm">重新开始</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help -->
+<div class="overlay" id="helpOverlay">
+  <div class="modal">
+    <h2>怎么玩</h2>
+    <div class="instructions">
+      <div class="row"><b>基础规则：</b>使用方向键、WASD 或手机滑动。相同阶段相遇后合并并升级一级。</div>
+      <div class="row"><b>最高目标：</b>从 2“幼儿园”一路合成到 32768“诺奖得主”。</div>
+      <div class="row"><b>动态事件：</b>当前棋盘最高阶段决定事件池。本科不会再遇到高考；博士阶段才会出现 Reviewer 2、补实验、延期毕业等。</div>
+      <div class="row"><b>正面事件：</b>可增加声望、随机升级一个方块，或消除负面事件。</div>
+      <div class="row"><b>负面事件：</b>会冻结一个格子若干步。倒计时结束后自动解除。</div>
+      <div class="row"><b>失败条件：</b>棋盘没有空格，且不存在任何可以移动或合并的方块。</div>
+    </div>
+    <div class="disclaimer">
+      本游戏仅用于娱乐。优青、杰青、院士、诺奖得主等在现实中不是线性晋升关系；游戏中的事件和结果也不代表真实科研评价体系。
+    </div>
+    <div class="modal-actions" style="margin-top:16px"><button class="btn" id="helpClose">知道了</button></div>
+  </div>
+</div>
+
+<!-- Lose -->
+<div class="overlay" id="loseOverlay">
+  <div class="modal center">
+    <div class="event-badge">GAME OVER</div>
+    <h2>❌ 本轮失败</h2>
+    <p id="loseText"></p>
+    <div class="modal-actions">
+      <button class="btn" id="loseRestart">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<!-- Win -->
+<div class="overlay" id="winOverlay">
+  <div class="modal center">
+    <div class="event-badge">ACADEMIC 32768</div>
+    <h2>🏆 诺奖得主</h2>
+    <p>你已经完成终极学术合成：Nobel Laureate。</p>
+    <div class="modal-actions">
+      <button class="btn alt" id="winContinue">继续挑战</button>
+      <button class="btn" id="winRestart">重新开始</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Feedback -->
+<div class="overlay" id="feedbackOverlay" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+  <div class="modal">
+    <div class="event-badge">FEEDBACK</div>
+    <h2 id="feedbackTitle">反馈与建议</h2>
+    <p>可以报告 Bug、事件阶段不合理、文字问题或玩法建议。若尚未绑定在线反馈端点，会生成可复制/分享的结构化反馈文本。</p>
+    <div class="form-field">
+      <label for="feedbackType">类型</label>
+      <select id="feedbackType">
+        <option value="Bug">Bug / 无法正常游戏</option>
+        <option value="事件">阶段事件不合理</option>
+        <option value="体验">交互与视觉体验</option>
+        <option value="建议">新玩法建议</option>
+        <option value="其他">其他</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label for="feedbackText">具体内容</label>
+      <textarea id="feedbackText" maxlength="1200" placeholder="例如：本科阶段出现了不属于本科的事件……"></textarea>
+    </div>
+    <div class="form-field">
+      <label for="feedbackContact">联系方式（可选）</label>
+      <input id="feedbackContact" maxlength="120" placeholder="邮箱 / GitHub / 其他联系方式">
+    </div>
+    <div class="feedback-note" id="feedbackModeNote"></div>
+    <div class="modal-actions">
+      <button class="btn alt" id="feedbackClose">取消</button>
+      <button class="btn" id="feedbackSubmit">提交 / 复制反馈</button>
+    </div>
+  </div>
+</div>
+
+<!-- About -->
+<div class="overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+  <div class="modal center">
+    <img class="about-logo" src="assets/logo.svg" alt="Academic 2048">
+    <h2 id="aboutTitle">关于 Academic 2048</h2>
+    <p>一个以教育与科研生涯为主题的 2048 衍生小游戏。从幼儿园开始，通过合并一路到本科、硕博、教职、人才项目与最终的“诺奖得主”。</p>
+    <div class="credit-card" style="text-align:left">
+      <b>作者：</b><span id="aboutAuthor"></span><br>
+      <b>版本：</b><span id="aboutVersion"></span><br>
+      <b>发布日期：</b><span id="aboutDate"></span><br><br>
+      <b>致谢：</b>玩法受 Gabriele Cirulli 创作的 2048 启发。感谢开源 Web 社区及参与测试、提出事件设计建议的玩家。<br><br>
+      <b>声明：</b>本游戏为非官方娱乐作品。游戏中的“优青、杰青、院士、诺奖得主”等仅作为娱乐化等级，不构成现实制度关系或科研评价主张。未使用 Nobel Prize 官方 Logo、奖章或官方视觉资产。
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn alt" id="sourceBtn" style="display:none">项目源码</button>
+      <button class="btn" id="aboutClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">已复制</div>
+
+<script src="site-config.js"></script>
+<script>
+const CONFIG=window.ACADEMIC2048_CONFIG||{};
+const levels={
+  2:["幼儿园","Kindergarten"],4:["小学生","Primary school"],8:["初中生","Middle school"],
+  16:["高中生","High school"],32:["本科生","Undergraduate"],64:["硕士","Master"],
+  128:["博士","PhD"],256:["博后","Postdoc"],512:["青椒","Early-career"],
+  1024:["副教授","Associate Prof."],2048:["教授","Professor"],4096:["优青","Excellent Young"],
+  8192:["杰青","Distinguished Young"],16384:["院士","Academician"],32768:["诺奖得主","Nobel Laureate"]
+};
+const levelValues=Object.keys(levels).map(Number);
+
+const milestone={
+  4:"小学阶段开启：开始进入系统学习。",
+  8:"进入初中：考试与排名开始出现。",
+  16:"进入高中：高考压力正式上线。",
+  32:"进入本科：GPA、四六级、保研与考研成为新的问题。",
+  64:"进入硕士：选题、实验与论文开始主导生活。",
+  128:"进入博士：论文、审稿和毕业压力叠加。",
+  256:"进入博后：成果、出站与教职竞争同步进行。",
+  512:"进入青椒：论文、基金与考核进入高强度阶段。",
+  1024:"晋升副教授：项目、职称与团队责任继续增加。",
+  2048:"晋升教授：独立 PI 模式全面开启。",
+  4096:"获得优青：进入青年人才竞争高位。",
+  8192:"获得杰青：进入领域核心竞争层级。",
+  16384:"当选院士：学术影响力进入顶层。",
+  32768:"获得终极成就：诺奖得主。"
+};
+
+/* 正确按“当前最高等级”逐级映射 */
+const pools=[
+  {max:2,events:[["老师表扬","bonus",80],["兴趣被发现","upgrade"],["不想午睡","negative",2],["家长帮忙","rescue"]]},
+  {max:4,events:[["考试满分","bonus",120],["老师推荐","upgrade"],["作业没写完","negative",2],["同桌救场","rescue"]]},
+  {max:8,events:[["竞赛获奖","bonus",180],["进入重点班","upgrade"],["偏科","negative",3],["老师辅导","rescue"]]},
+  {max:16,events:[["模考进步","bonus",260],["保送机会","upgrade"],["高考压力","negative",3],["学长指点","rescue"]]},
+  {max:32,events:[["奖学金","bonus",400],["保研成功","upgrade"],["四六级没过","negative",3],["绩点下降","negative",3],["考研焦虑","negative",3],["导师推荐","rescue"]]},
+  {max:64,events:[["论文接收","bonus",700],["获得国奖","upgrade"],["实验失败","negative",3],["选题卡住","negative",3],["毕业压力","negative",3],["师兄救场","rescue"]]},
+  {max:128,events:[["一区论文接收","bonus",1200],["顺利毕业","upgrade"],["Reviewer 2","negative",4],["补实验","negative",4],["延期毕业","negative",4],["数据重做","negative",4],["导师出手","rescue"]]},
+  {max:256,events:[["顶刊接收","bonus",1800],["拿到教职","upgrade"],["出站延期","negative",4],["教职竞争","negative",4],["文章返修","negative",4],["合作 PI 帮忙","rescue"]]},
+  {max:512,events:[["青基获批","bonus",2500],["人才计划入选","upgrade"],["非升即走","negative",4],["年度考核","negative",4],["青基落选","negative",4],["贵人相助","rescue"]]},
+  {max:1024,events:[["面上获批","bonus",3500],["职称晋升","upgrade"],["基金落选","negative",4],["项目结题压力","negative",4],["团队考核","negative",4],["团队支援","rescue"]]},
+  {max:2048,events:[["重点项目获批","bonus",5000],["重大人才计划","upgrade"],["大项目申报失利","negative",4],["团队管理压力","negative",4],["学科竞争","negative",4],["强强合作","rescue"]]},
+  {max:4096,events:[["重大项目获批","bonus",7000],["学术突破","upgrade"],["人才答辩失利","negative",4],["国际合作受阻","negative",4],["团队建设压力","negative",4],["国际合作推进","rescue"]]},
+  {max:8192,events:[["重大原创成果","bonus",10000],["学科突破","upgrade"],["重大项目竞争失利","negative",4],["团队梯队压力","negative",4],["战略方向争议","negative",4],["顶尖团队协同","rescue"]]},
+  {max:16384,events:[["国际大奖","bonus",13000],["重大原创突破","upgrade"],["学科评估压力","negative",4],["重大任务压力","negative",4],["国际竞争","negative",4],["全球合作","rescue"]]},
+  {max:32768,events:[["世界级原创突破","bonus",16000],["理论范式突破","upgrade"],["重大理论争议","negative",4],["国际竞争","negative",4],["学术遗产压力","negative",4],["全球合作","rescue"]]}
+];
+
+const $=id=>document.getElementById(id);
+const board=$("board"), tileLayer=$("tileLayer"), statusEl=$("status"), stageEl=$("stage");
+const scoreEl=$("score"),bestEl=$("best"),nextStageEl=$("nextStage"),progressFill=$("progressFill");
+const APP_VERSION=CONFIG.version||"7.0.0";
+$("versionTag").textContent="v"+APP_VERSION;
+$("authorTag").textContent=CONFIG.author||"Academic 2048";
+$("footerMeta").textContent=`Academic 2048 · v${APP_VERSION} · ${CONFIG.author||""} · ${(CONFIG.releaseDate||"").slice(0,4)||"2026"}`;
+$("aboutAuthor").textContent=CONFIG.author||"Academic 2048";
+$("aboutVersion").textContent="v"+APP_VERSION;
+$("aboutDate").textContent=CONFIG.releaseDate||"";
+if(CONFIG.sourceUrl){$("sourceBtn").style.display="inline-block";$("sourceBtn").onclick=()=>window.open(CONFIG.sourceUrl,"_blank","noopener")}
+
+
+let grid,tiles,score=0,best=Number(localStorage.getItem("academic2048_best_v7")||0);
+let nextId=1,moveCount=0,won=false,inputLocked=false;
+let soundOn=localStorage.getItem("academic2048_sound_v7")!=="off";
+let audioCtx=null;
+
+bestEl.textContent=best;
+$("soundBtn").textContent=soundOn?"🔊 音效开":"🔇 音效关";
+
+for(let i=0;i<16;i++){const d=document.createElement("div");d.className="bg-cell";$("bgGrid").appendChild(d)}
+
+function ensureAudio(){
+  if(!audioCtx){try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+}
+function tone(freq=440,dur=.06,vol=.035){
+  if(!soundOn)return; ensureAudio(); if(!audioCtx)return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.frequency.value=freq;o.type="sine";g.gain.value=vol;
+  o.connect(g);g.connect(audioCtx.destination);o.start();
+  g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
+  o.stop(audioCtx.currentTime+dur);
+}
+function updateBest(){
+  if(score>best){best=score;localStorage.setItem("academic2048_best_v7",best);bestEl.textContent=best}
+}
+
+function makeTile(value,r,c,type="tile",meta={}){
+  const id=nextId++;
+  tiles[id]={id,value,r,c,type,ttl:meta.ttl||0,name:meta.name||"",newborn:!!meta.newborn,pop:!!meta.pop};
+  grid[r][c]=id;
+  return id;
+}
+function resetState(){
+  grid=Array.from({length:4},()=>Array(4).fill(null));
+  tiles={};score=0;moveCount=0;won=false;inputLocked=false;nextId=1;
+  addRandomTile();addRandomTile();renderAll();
+  statusEl.textContent="新的成长路径开始了。";
+  closeAllOverlays();
+}
+function addRandomTile(){
+  const e=emptyCells();if(!e.length)return;
+  const [r,c]=e[Math.floor(Math.random()*e.length)];
+  makeTile(Math.random()<.9?2:4,r,c,"tile",{newborn:true});
+}
+function emptyCells(){
+  const a=[];for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(grid[r][c]==null)a.push([r,c]);return a;
+}
+function normalTileIds(){return Object.values(tiles).filter(t=>t.type==="tile").map(t=>t.id)}
+function blockerIds(){return Object.values(tiles).filter(t=>t.type==="blocker").map(t=>t.id)}
+function highestValue(){
+  let h=2;for(const t of Object.values(tiles))if(t.type==="tile"&&t.value>h)h=t.value;return h;
+}
+function currentPool(){
+  const h=highestValue();for(const p of pools)if(h<=p.max)return p;return pools[pools.length-1];
+}
+
+function metrics(){
+  const rect=board.getBoundingClientRect(),gap=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gap"))||11;
+  const cell=(rect.width-gap*3)/4;return{cell,gap};
+}
+function pos(r,c){const m=metrics();return{x:c*(m.cell+m.gap),y:r*(m.cell+m.gap),s:m.cell}}
+
+function tileClass(v){return "v"+Math.min(v,32768)}
+function createTileDOM(t){
+  const d=document.createElement("div");d.className="tile";d.dataset.id=t.id;
+  tileLayer.appendChild(d);return d;
+}
+function updateTileDOM(t,d,animate=true){
+  const p=pos(t.r,t.c);
+  d.style.width=p.s+"px";d.style.height=p.s+"px";
+  if(!animate)d.style.transition="none"; else d.style.transition="";
+  d.style.transform=`translate(${p.x}px,${p.y}px)`;
+  d.className="tile";
+  if(t.type==="blocker"){
+    d.classList.add("blocker");
+    d.innerHTML=`<div>${t.name}<span class="en">Blocked</span><span class="ttl">剩余 ${t.ttl} 步</span></div>`;
+  }else{
+    d.classList.add(tileClass(t.value));
+    const lab=levels[t.value]||["学术传奇","Beyond Nobel"];
+    d.innerHTML=`<div>${lab[0]}<span class="en">${lab[1]}</span></div>`;
+  }
+  if(t.newborn){d.classList.add("spawn");t.newborn=false}
+  if(t.pop){d.classList.add("pop");t.pop=false}
+}
+function renderAll(animate=false){
+  const alive=new Set(Object.keys(tiles).map(String));
+  tileLayer.querySelectorAll(".tile").forEach(d=>{if(!alive.has(d.dataset.id))d.remove()});
+  for(const t of Object.values(tiles)){
+    let d=tileLayer.querySelector(`[data-id="${t.id}"]`);
+    if(!d)d=createTileDOM(t);
+    updateTileDOM(t,d,animate);
+  }
+  scoreEl.textContent=score;updateBest();updateStageUI();
+}
+function updateStageUI(){
+  const h=highestValue(),lab=levels[h]||["学术传奇","Beyond Nobel"];
+  stageEl.textContent=`当前阶段：${lab[0]}（${h}）`;
+  const idx=levelValues.indexOf(h),next=levelValues[Math.min(idx+1,levelValues.length-1)];
+  if(h>=32768){nextStageEl.textContent="已达到终极阶段：诺奖得主（32768）";progressFill.style.width="100%"}
+  else{
+    nextStageEl.textContent=`下一阶段：${levels[next][0]}（${next}）`;
+    progressFill.style.width="50%";
+  }
+}
+window.addEventListener("resize",()=>renderAll(false));
+
+/* ---------- smooth movement planner ---------- */
+function getLineCoords(dir,index){
+  const coords=[];
+  if(dir==="left")for(let c=0;c<4;c++)coords.push([index,c]);
+  if(dir==="right")for(let c=3;c>=0;c--)coords.push([index,c]);
+  if(dir==="up")for(let r=0;r<4;r++)coords.push([r,index]);
+  if(dir==="down")for(let r=3;r>=0;r--)coords.push([r,index]);
+  return coords;
+}
+function planLine(coords,newGrid,moves,merges){
+  let seg=[];
+  function flush(segment){
+    if(!segment.length)return;
+    const ids=segment.map(([r,c])=>grid[r][c]).filter(id=>id&&tiles[id].type==="tile");
+    const targets=segment.slice(); // already direction-ordered
+    let outIndex=0,prevSurvivor=null,prevValue=null,prevMerged=false;
+
+    for(const id of ids){
+      const t=tiles[id];
+      if(prevSurvivor && prevValue===t.value && !prevMerged){
+        const survivor=tiles[prevSurvivor];
+        const [tr,tc]=targets[outIndex-1];
+        moves[id]={r:tr,c:tc,remove:true};
+        merges.push({survivor:prevSurvivor,removed:id,newValue:t.value*2,r:tr,c:tc});
+        prevValue=t.value*2; prevMerged=true;
+      }else{
+        const [tr,tc]=targets[outIndex++];
+        moves[id]={r:tr,c:tc,remove:false};
+        newGrid[tr][tc]=id;
+        prevSurvivor=id; prevValue=t.value; prevMerged=false;
+      }
+    }
+  }
+  for(let i=0;i<=coords.length;i++){
+    if(i===coords.length){
+      flush(seg);break;
+    }
+    const [r,c]=coords[i],id=grid[r][c];
+    if(id && tiles[id].type==="blocker"){
+      flush(seg);seg=[];
+      newGrid[r][c]=id;
+    }else seg.push([r,c]);
+  }
+}
+function planMove(dir){
+  const newGrid=Array.from({length:4},()=>Array(4).fill(null));
+  const moves={},merges=[];
+  for(let i=0;i<4;i++)planLine(getLineCoords(dir,i),newGrid,moves,merges);
+
+  let changed=false;
+  for(const [idStr,m] of Object.entries(moves)){
+    const t=tiles[Number(idStr)];
+    if(t.r!==m.r||t.c!==m.c||m.remove)changed=true;
+  }
+  return{changed,newGrid,moves,merges};
+}
+
+async function doMove(dir){
+  if(inputLocked||document.querySelector(".overlay.show"))return;
+  const plan=planMove(dir);if(!plan.changed)return;
+  inputLocked=true;moveCount++;
+
+  // animate current DOMs to planned targets
+  for(const [idStr,m] of Object.entries(plan.moves)){
+    const id=Number(idStr),t=tiles[id],d=tileLayer.querySelector(`[data-id="${id}"]`);
+    t.r=m.r;t.c=m.c;
+    if(d){
+      const p=pos(m.r,m.c);d.style.transform=`translate(${p.x}px,${p.y}px)`;
+    }
+  }
+  tone(270,.045,.02);
+  await new Promise(r=>setTimeout(r,145));
+
+  // apply merges and final grid
+  grid=plan.newGrid;
+  let gain=0,highestMerged=0;
+  for(const m of plan.merges){
+    if(!tiles[m.survivor]||!tiles[m.removed])continue;
+    tiles[m.survivor].value=m.newValue;
+    tiles[m.survivor].r=m.r;tiles[m.survivor].c=m.c;tiles[m.survivor].pop=true;
+    delete tiles[m.removed];
+    grid[m.r][m.c]=m.survivor;
+    gain+=m.newValue;highestMerged=Math.max(highestMerged,m.newValue);
+  }
+  score+=gain;
+
+  tickBlockers();
+  addRandomTile();
+
+  if(highestMerged){
+    statusEl.textContent=milestone[highestMerged]||`科研声望 +${gain}`;
+    tone(highestMerged>=2048?720:520,.08,.035);
+  }
+
+  const eventInfo=triggerEvent();
+  renderAll(false);
+
+  if(highestMerged>=32768&&!won){
+    won=true;setTimeout(()=>openOverlay("winOverlay"),120);
+  }else if(eventInfo){
+    setTimeout(()=>showEventModal(eventInfo),120);
+  }else if(!canMove()){
+    setTimeout(showLose,120);
+  }
+  inputLocked=false;
+}
+
+/* ---------- Events ---------- */
+function triggerEvent(){
+  if(moveCount<6||Math.random()>.13)return null;
+  const pool=currentPool(),ev=pool.events[Math.floor(Math.random()*pool.events.length)];
+  const [name,type,val]=ev;
+
+  if(type==="bonus"){
+    score+=val;updateBest();tone(660,.10,.04);
+    return{kind:"正面事件",title:name,text:`科研声望 +${val}。`,positive:true};
+  }
+  if(type==="upgrade"){
+    const ids=normalTileIds();if(!ids.length)return null;
+    const id=ids[Math.floor(Math.random()*ids.length)],t=tiles[id];
+    const old=t.value;t.value=Math.min(t.value*2,32768);t.pop=true;
+    tone(760,.10,.04);
+    return{kind:"升级事件",title:name,text:`一个 ${levels[old]?.[0]||old} 方块直接升级为 ${levels[t.value]?.[0]||t.value}。`,positive:true};
+  }
+  if(type==="rescue"){
+    const bad=blockerIds();
+    if(bad.length){
+      const id=bad[Math.floor(Math.random()*bad.length)],name2=tiles[id].name;
+      grid[tiles[id].r][tiles[id].c]=null;delete tiles[id];
+      tone(620,.09,.035);
+      return{kind:"解锁事件",title:name,text:`清除了负面事件“${name2}”。`,positive:true};
+    }else{
+      score+=300;updateBest();tone(620,.09,.035);
+      return{kind:"解锁事件",title:name,text:"当前没有负面事件，转化为科研声望 +300。",positive:true};
+    }
+  }
+  if(type==="negative"){
+    if(blockerIds().length>=1||emptyCells().length<3)return null;
+    const e=emptyCells(),[r,c]=e[Math.floor(Math.random()*e.length)];
+    makeTile(0,r,c,"blocker",{ttl:val||3,name,newborn:true});
+    tone(150,.12,.05);
+    return{kind:"负面事件",title:name,text:`冻结一个格子 ${val||3} 次有效移动。`,positive:false};
+  }
+  return null;
+}
+function tickBlockers(){
+  for(const id of [...blockerIds()]){
+    const t=tiles[id];t.ttl--;
+    if(t.ttl<=0){grid[t.r][t.c]=null;delete tiles[id]}
+  }
+}
+function showEventModal(info){
+  $("eventBadge").textContent=info.kind;
+  $("eventTitle").textContent=info.title;
+  $("eventTitle").className=info.positive?"positive":"negative";
+  $("eventText").textContent=info.text;
+  openOverlay("eventOverlay");
+}
+$("eventOk").onclick=()=>{
+  closeOverlay("eventOverlay");
+  if(!canMove())setTimeout(showLose,80);
+};
+
+/* ---------- Game over / win ---------- */
+function canMove(){
+  if(emptyCells().length)return true;
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+    const id=grid[r][c];if(!id||tiles[id].type!=="tile")continue;
+    const v=tiles[id].value;
+    if(r<3){const j=grid[r+1][c];if(j&&tiles[j].type==="tile"&&tiles[j].value===v)return true}
+    if(c<3){const j=grid[r][c+1];if(j&&tiles[j].type==="tile"&&tiles[j].value===v)return true}
+  }
+  return false;
+}
+function showLose(){
+  const h=highestValue(),label=levels[h]?.[0]||"学术传奇";
+  $("loseText").textContent=`你的最高阶段：${label}（${h}），科研声望 ${score}。棋盘已无可移动或合并空间。`;
+  tone(110,.25,.05);openOverlay("loseOverlay");
+}
+
+/* ---------- overlays ---------- */
+function openOverlay(id){$(id).classList.add("show")}
+function closeOverlay(id){$(id).classList.remove("show")}
+function closeAllOverlays(){document.querySelectorAll(".overlay").forEach(x=>x.classList.remove("show"))}
+
+$("restartBtn").onclick=()=>openOverlay("restartOverlay");
+$("restartCancel").onclick=()=>closeOverlay("restartOverlay");
+$("restartConfirm").onclick=resetState;
+$("loseRestart").onclick=resetState;
+$("winRestart").onclick=resetState;
+$("winContinue").onclick=()=>closeOverlay("winOverlay");
+$("helpBtn").onclick=()=>openOverlay("helpOverlay");
+$("helpClose").onclick=()=>closeOverlay("helpOverlay");
+$("soundBtn").onclick=()=>{
+  soundOn=!soundOn;localStorage.setItem("academic2048_sound_v7",soundOn?"on":"off");
+  $("soundBtn").textContent=soundOn?"🔊 音效开":"🔇 音效关";
+  if(soundOn){ensureAudio();tone(520,.08,.035)}
+};
+
+
+/* ---------- publication / share / feedback ---------- */
+function showToast(msg){
+  const t=$("toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(showToast._timer);showToast._timer=setTimeout(()=>t.classList.remove("show"),1800);
+}
+async function copyText(text){
+  try{await navigator.clipboard.writeText(text);return true}catch(e){
+    const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch(_){}
+    ta.remove();return ok;
+  }
+}
+$("aboutBtn").onclick=()=>openOverlay("aboutOverlay");
+$("footerAbout").onclick=()=>openOverlay("aboutOverlay");
+$("aboutClose").onclick=()=>closeOverlay("aboutOverlay");
+
+function openFeedback(){
+  $("feedbackText").value="";
+  $("feedbackContact").value="";
+  const online=!!CONFIG.feedbackUrl||!!CONFIG.feedbackEmail;
+  $("feedbackModeNote").textContent=online
+    ?"已配置在线反馈端点；提交后将跳转到相应反馈渠道。"
+    :"当前发布包尚未绑定 GitHub Issues 或公开邮箱；提交时会复制反馈文本，方便通过任意渠道发送给作者。";
+  openOverlay("feedbackOverlay");
+}
+$("feedbackBtn").onclick=openFeedback;
+$("footerFeedback").onclick=openFeedback;
+$("feedbackClose").onclick=()=>closeOverlay("feedbackOverlay");
+
+function feedbackPayload(){
+  const h=highestValue(),lab=levels[h]?.[0]||h;
+  return [
+    `[Academic 2048 v${APP_VERSION} Feedback]`,
+    `类型：${$("feedbackType").value}`,
+    `内容：${$("feedbackText").value.trim()||"(未填写)"}`,
+    `联系方式：${$("feedbackContact").value.trim()||"(未填写)"}`,
+    `当前最高阶段：${lab} (${h})`,
+    `科研声望：${score}`,
+    `页面：${location.href}`,
+    `设备：${navigator.userAgent}`
+  ].join("\n");
+}
+$("feedbackSubmit").onclick=async()=>{
+  const payload=feedbackPayload();
+  if(CONFIG.feedbackUrl){
+    let url=CONFIG.feedbackUrl;
+    const sep=url.includes("?")?"&":"?";
+    url += `${sep}title=${encodeURIComponent("Academic 2048 feedback")}&body=${encodeURIComponent(payload)}`;
+    window.open(url,"_blank","noopener");closeOverlay("feedbackOverlay");return;
+  }
+  if(CONFIG.feedbackEmail){
+    location.href=`mailto:${encodeURIComponent(CONFIG.feedbackEmail)}?subject=${encodeURIComponent("Academic 2048 feedback")}&body=${encodeURIComponent(payload)}`;
+    closeOverlay("feedbackOverlay");return;
+  }
+  const ok=await copyText(payload);
+  if(navigator.share){
+    try{await navigator.share({title:"Academic 2048 Feedback",text:payload});closeOverlay("feedbackOverlay");return}catch(e){}
+  }
+  closeOverlay("feedbackOverlay");showToast(ok?"反馈内容已复制":"无法自动复制，请手动复制反馈内容");
+};
+
+$("shareBtn").onclick=async()=>{
+  const shareData={title:"学术2048",text:"从幼儿园一路合成到诺奖得主：Academic 2048",url:location.href};
+  if(navigator.share){try{await navigator.share(shareData);return}catch(e){}}
+  const ok=await copyText(location.href);showToast(ok?"游戏链接已复制":"请手动复制浏览器地址");
+};
+
+/* PWA offline cache */
+if("serviceWorker" in navigator && location.protocol!=="file:"){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+
+/* keyboard */
+document.addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();
+  if(document.querySelector(".overlay.show")){
+    if(k==="escape"){
+      const shown=document.querySelector(".overlay.show");
+      if(shown&&shown.id!=="loseOverlay")shown.classList.remove("show");
+    }
+    return;
+  }
+  const map={arrowleft:"left",a:"left",arrowright:"right",d:"right",arrowup:"up",w:"up",arrowdown:"down",s:"down"};
+  if(map[k]){e.preventDefault();doMove(map[k])}
+});
+
+/* mobile swipe */
+let sx=0,sy=0,st=0;
+$("boardShell").addEventListener("touchstart",e=>{
+  const t=e.touches[0];sx=t.clientX;sy=t.clientY;st=Date.now();ensureAudio();
+},{passive:true});
+$("boardShell").addEventListener("touchend",e=>{
+  const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<22)return;
+  if(Math.abs(dx)>Math.abs(dy))doMove(dx>0?"right":"left");else doMove(dy>0?"down":"up");
+},{passive:true});
+
+/* click initializes audio permission */
+document.addEventListener("pointerdown",ensureAudio,{once:true});
+
+
+["feedbackOverlay","aboutOverlay","helpOverlay","restartOverlay","eventOverlay"].forEach(id=>{
+  $(id).addEventListener("click",e=>{if(e.target===$(id))closeOverlay(id)});
+});
+resetState();
+</script>
+</body>
+</html>

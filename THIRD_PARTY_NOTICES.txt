@@ -1,0 +1,10 @@
+Academic 2048 — Third-party acknowledgement
+
+Gameplay concept inspired by:
+2048, created by Gabriele Cirulli
+https://github.com/gabrielecirulli/2048
+
+This release does not claim affiliation with Gabriele Cirulli, the Nobel Foundation,
+universities, research institutions, funding agencies, talent programs, or award organizations.
+
+No official Nobel Prize logo, medal artwork, or official visual assets are included.
